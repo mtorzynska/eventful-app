@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Plan wydarzenia</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #fff8f0 0%, #ffe6e1 50%, #f3e8ff 100%);
+      min-height: 100vh;
+      color: #4a4a4a;
+    }
+    .tab-btn {
+      position: relative;
+      padding-bottom: 0.5rem;
+      font-weight: 600;
+      color: #6b7280;
+      border-bottom: 3px solid transparent;
+      transition: all 0.3s ease;
+    }
+    .tab-btn:hover {
+      color: #d97706;
+      transform: translateY(-1px);
+    }
+    .tab-btn.active {
+      color: transparent;
+      background: linear-gradient(90deg, #f97316, #ec4899, #8b5cf6);
+      background-clip: text;
+      -webkit-background-clip: text;
+      border-bottom: 3px solid;
+      border-image-slice: 1;
+      border-image-source: linear-gradient(90deg, #f97316, #ec4899, #8b5cf6);
+    }
+    .editable {
+      border: 2px dashed transparent;
+      padding: 4px;
+      border-radius: 4px;
+      transition: all 0.3s ease;
+    }
+    .editable:hover {
+      border-color: #f97316;
+      background-color: #fef3e2;
+    }
+    .editing {
+      border-color: #f97316 !important;
+      background-color: #fef3e2 !important;
+    }
+    .place-card {
+      background: linear-gradient(135deg, #fef7ff 0%, #f3e8ff 50%, #e0e7ff 100%);
+      border: 1px solid #e5e7eb;
+      transition: all 0.3s ease;
+    }
+    .place-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    }
+    .place-card.selected {
+      border-color: #8b5cf6;
+      box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.3);
+    }
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 12px 20px;
+      border-radius: 8px;
+      color: white;
+      font-weight: 600;
+      z-index: 1000;
+      transform: translateX(400px);
+      transition: transform 0.3s ease;
+    }
+    .notification.show {
+      transform: translateX(0);
+    }
+    .notification.success {
+      background-color: #10b981;
+    }
+    .notification.error {
+      background-color: #ef4444;
+    }
+    .notification.warning {
+      background-color: #f59e0b;
+    }
+    .changes-indicator {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(90deg, #f97316, #ec4899);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 50px;
+      font-weight: 600;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s ease;
+    }
+    .changes-indicator.show {
+      opacity: 1;
+      visibility: visible;
+    }
+    .btn-download {
+      background: linear-gradient(90deg, #10b981, #059669);
+      transition: all 0.3s ease;
+    }
+    .btn-download:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(16, 185, 129, 0.4);
+    }
+    .loading-spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,255,255,.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 1s ease-in-out infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    #debug-info {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      padding: 10px;
+      border-radius: 5px;
+      font-size: 12px;
+      max-width: 300px;
+      max-height: 200px;
+      overflow: auto;
+      z-index: 1000;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="max-w-6xl mx-auto p-8 bg-white rounded-2xl shadow-xl">
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-3xl font-extrabold bg-gradient-to-r from-orange-500 via-pink-600 to-purple-700 bg-clip-text text-transparent">
+        Plan wydarzenia: {{ event_type }}
+      </h1>
+      <button onclick="window.location.href='/'" class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition">
+        ← Nowe wydarzenie
+      </button>
+    </div>
+
+    <!-- Informacja o planowanym czasie -->
+    {% if start_time or end_time %}
+    <div class="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-200">
+      <h3 class="text-lg font-semibold mb-2 flex items-center text-blue-800">
+        <span class="mr-2">🕒</span> Planowany czas wydarzenia
+      </h3>
+      <p class="text-blue-700">
+        {% if start_time and end_time %}
+          Od {{ start_time }} do {{ end_time }}
+        {% elif start_time %}
+          Rozpoczęcie: {{ start_time }}
+        {% elif end_time %}
+          Zakończenie: {{ end_time }}
+        {% endif %}
+      </p>
+    </div>
+    {% endif %}
+
+    <div class="border-b mb-8">
+      <nav class="flex space-x-8" id="tabs">
+        <button onclick="showTab('harmonogram')" class="tab-btn active pb-2">📅 Harmonogram</button>
+        <button onclick="showTab('miejsca')" class="tab-btn pb-2">📍 Miejsca</button>
+        <button onclick="showTab('zaproszenie')" class="tab-btn pb-2">✉️ Zaproszenie</button>
+      </nav>
+    </div>
+
+    <div id="harmonogram" class="tab-content space-y-6">
+      {% if event_plan %}
+        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-200">
+          <h2 class="text-xl font-semibold mb-3 flex items-center">
+            <span class="mr-2">💬</span> Komentarz asystenta
+          </h2>
+          <p class="text-gray-700 leading-relaxed">{{ event_plan.comment_from_assistant }}</p>
+        </div>
+
+        <div class="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-xl border border-green-200">
+          <h2 class="text-xl font-semibold mb-3 flex items-center">
+            <span class="mr-2">📍</span> Miejsce wydarzenia
+          </h2>
+          <div class="space-y-2">
+            <p><strong>Nazwa:</strong> <span class="editable" data-field="venue_name" data-original="{{ event_plan.venue_name }}">{{ event_plan.venue_name }}</span></p>
+            <p><strong>Adres:</strong> <span class="editable" data-field="venue_address" data-original="{{ event_plan.venue_address }}">{{ event_plan.venue_address }}</span></p>
+          </div>
+        </div>
+
+        <div class="bg-gradient-to-r from-purple-50 to-pink-50 p-6 rounded-xl border border-purple-200">
+          <h2 class="text-xl font-semibold mb-4 flex items-center">
+            <span class="mr-2">🕒</span> Harmonogram
+            <button onclick="addScheduleItem()" class="ml-auto px-3 py-1 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition">
+              + Dodaj pozycję
+            </button>
+          </h2>
+          <div class="overflow-x-auto">
+            <table class="min-w-full rounded-lg shadow overflow-hidden" id="schedule-table">
+              <thead class="bg-purple-100">
+                <tr>
+                  <th class="py-3 px-6 text-left">Godzina</th>
+                  <th class="py-3 px-6 text-left">Opis</th>
+                  <th class="py-3 px-6 text-left w-20">Akcje</th>
+                </tr>
+              </thead>
+              <tbody id="schedule-tbody">
+                {% for activity in event_plan.schedule %}
+                <tr class="even:bg-gray-50 schedule-row" data-original-hour="{{ activity.hour }}" data-original-description="{{ activity.description }}">
+                  <td class="py-3 px-6 align-top">
+                    <span class="editable" data-field="hour" data-original="{{ activity.hour }}">{{ activity.hour }}</span>
+                  </td>
+                  <td class="py-3 px-6 align-top">
+                    <span class="editable" data-field="description" data-original="{{ activity.description }}">{{ activity.description }}</span>
+                  </td>
+                  <td class="py-3 px-6 align-top">
+                    <button onclick="removeScheduleItem(this)" class="text-red-600 hover:text-red-800 text-sm">
+                      🗑️
+                    </button>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="bg-gradient-to-r from-orange-50 to-yellow-50 p-6 rounded-xl border border-orange-200">
+          <h2 class="text-xl font-semibold mb-3 flex items-center">
+            <span class="mr-2">🎯</span> Aktywności dodatkowe
+            <button onclick="addActivity()" class="ml-auto px-3 py-1 bg-orange-600 text-white text-sm rounded-lg hover:bg-orange-700 transition">
+              + Dodaj aktywność
+            </button>
+          </h2>
+          <ul class="space-y-2" id="activities-list">
+            {% for extra in event_plan.activities %}
+              <li class="flex items-center justify-between bg-white p-3 rounded-lg border" data-original="{{ extra }}">
+                <span class="editable" data-field="activity" data-original="{{ extra }}">{{ extra }}</span>
+                <button onclick="removeActivity(this)" class="text-red-600 hover:text-red-800 text-sm ml-4">
+                  🗑️
+                </button>
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+
+        <div class="flex justify-center space-x-4">
+          <button onclick="discardChanges()" class="px-8 py-3 bg-gradient-to-r from-gray-500 to-gray-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition transform hover:scale-105">
+            ↶ Odrzuć zmiany
+          </button>
+          <button onclick="saveChanges()" class="px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition transform hover:scale-105">
+            💾 Zapisz zmiany
+          </button>
+          <button id="download-pdf" onclick="downloadPDF()" class="px-8 py-3 btn-download text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition transform hover:scale-105">
+            📄 Pobierz PDF
+          </button>
+        </div>
+      {% else %}
+        <p class="text-red-600 text-center py-8">Nie udało się wygenerować planu wydarzenia.</p>
+      {% endif %}
+    </div>
+
+    <div id="miejsca" class="tab-content hidden space-y-6">
+      <h2 class="text-xl font-semibold mb-4 flex items-center">
+        <span class="mr-2">📍</span> Proponowane miejsca
+      </h2>
+      {% if places and places|length > 0 %}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {% for place in places %}
+            <div class="place-card p-5 rounded-xl shadow-md cursor-pointer" onclick="selectPlace(this, '{{ place.name }}', '{{ place.address }}')">
+              <div class="flex justify-between items-start mb-2">
+                <h3 class="font-semibold text-lg text-gray-800">{{ place.name }}</h3>
+                <span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-sm">
+                  ⭐ {{ place.rating }}
+                </span>
+              </div>
+              <p class="text-gray-600 mb-3">📍 {{ place.address }}</p>
+              <button class="w-full py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
+                Wybierz to miejsce
+              </button>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-gray-500 text-center py-8">Brak dostępnych miejsc.</p>
+      {% endif %}
+    </div>
+
+    <div id="zaproszenie" class="tab-content hidden space-y-6">
+      <h2 class="text-xl font-semibold mb-4 flex items-center">
+        <span class="mr-2">✉️</span> Generowanie treści zaproszenia
+      </h2>
+      <form id="invitation-form" class="space-y-6 bg-gradient-to-r from-indigo-50 to-purple-50 p-6 rounded-xl border border-indigo-200">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block font-semibold mb-2 text-gray-700">Opis wydarzenia:</label>
+            <textarea name="event_details" rows="3" class="w-full p-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition" required>{{ event_description if event_plan else '' }}</textarea>
+          </div>
+          <div>
+            <label class="block font-semibold mb-2 text-gray-700">Organizatorzy:</label>
+            <input type="text" name="organizers" class="w-full p-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition" required />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block font-semibold mb-2 text-gray-700">Data wydarzenia:</label>
+            <input type="date" name="date" class="w-full p-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition" />
+          </div>
+          <div>
+            <label class="block font-semibold mb-2 text-gray-700">Godzina wydarzenia:</label>
+            <input type="time" name="time" value="{{ start_time if start_time else '' }}" class="w-full p-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition" />
+          </div>
+          <div>
+            <label class="block font-semibold mb-2 text-gray-700">Ton wypowiedzi:</label>
+            <select name="tone" class="w-full p-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition">
+              <option value="formalny">Formalny</option>
+              <option value="neutralny" selected>Neutralny</option>
+              <option value="przyjacielski">Przyjacielski</option>
+              <option value="entuzjastyczny">Entuzjastyczny</option>
+              <option value="elegancki">Elegancki</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block font-semibold mb-2 text-gray-700">Długość zaproszenia:</label>
+            <select name="length" class="w-full p-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition">
+              <option value="krótki">Krótkie (do 3 zdań)</option>
+              <option value="średni" selected>Średnie (3-6 zdań)</option>
+              <option value="długi">Długie (ponad 6 zdań)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold mb-2 text-gray-700">Miejsce wydarzenia:</label>
+            <select name="venue" class="w-full p-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition">
+              {% if places %}
+                {% for place in places %}
+                  <option value="{{ place.name }} - {{ place.address }}"
+                    {% if event_plan and place.name == event_plan.venue_name %}selected{% endif %}>
+                    {{ place.name }} – {{ place.address }}
+                  </option>
+                {% endfor %}
+              {% elif event_plan %}
+                <option value="{{ event_plan.venue_name }} – {{ event_plan.venue_address }}" selected>
+                  {{ event_plan.venue_name }} – {{ event_plan.venue_address }}
+                </option>
+              {% endif %}
+            </select>
+          </div>
+        </div>
+
+        <div class="flex justify-center">
+          <button type="submit" class="px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition transform hover:scale-105">
+            ✨ Generuj zaproszenie
+          </button>
+        </div>
+      </form>
+
+      <div id="invitation-result" class="hidden">
+        <div class="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-xl border border-green-200">
+          <h3 class="text-lg font-semibold mb-3 flex items-center">
+            <span class="mr-2">📝</span> Wygenerowane zaproszenie
+          </h3>
+          <textarea id="invitation-text" rows="8" readonly
+            class="w-full p-4 border border-green-300 rounded-lg bg-white text-gray-800 font-mono text-sm resize-none"></textarea>
+          <div class="flex justify-center mt-4">
+            <button onclick="copyInvitation()" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+              📋 Skopiuj zaproszenie
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification -->
+  <div id="notification" class="notification"></div>
+
+  <!-- Changes Indicator -->
+  <div id="changes-indicator" class="changes-indicator">
+    <span class="mr-2">⚠️</span> Masz niezapisane zmiany
+  </div>
+
+  <!-- Debug Info -->
+  <div id="debug-info"></div>
+
+  <script>
+    let editingElement = null;
+    let originalValue = '';
+    let hasUnsavedChanges = false;
+    let originalData = {};
+    let debugMode = false; // Ustaw na true, aby włączyć debugowanie
+
+    function toggleDebug() {
+      debugMode = !debugMode;
+      const debugInfo = document.getElementById('debug-info');
+      debugInfo.style.display = debugMode ? 'block' : 'none';
+    }
+
+    function debug(message, data = null) {
+      if (!debugMode) return;
+
+      const debugInfo = document.getElementById('debug-info');
+      const timestamp = new Date().toLocaleTimeString();
+      let content = `<div>[${timestamp}] ${message}</div>`;
+
+      if (data) {
+        content += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+      }
+
+      debugInfo.innerHTML += content;
+      debugInfo.scrollTop = debugInfo.scrollHeight;
+    }
+
+    function showTab(tab) {
+      document.querySelectorAll('.tab-content').forEach(tc => tc.classList.add('hidden'));
+      document.getElementById(tab).classList.remove('hidden');
+
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+
+      const activeBtn = [...document.querySelectorAll('.tab-btn')].find(btn =>
+        btn.textContent.toLowerCase().includes(tab.replace('harmonogram', 'harmonogram').replace('miejsca', 'miejsca').replace('zaproszenie', 'zaproszenie'))
+      );
+      if (activeBtn) {
+        activeBtn.classList.add('active');
+      }
+
+      // Jeśli przełączamy na zakładkę harmonogramu, upewnij się, że wszystkie edytowalne elementy są aktualne
+      if (tab === 'harmonogram') {
+        // Jeśli były jakieś zmiany w innych zakładkach, upewnij się, że są widoczne
+        const venueSelect = document.querySelector('select[name="venue"]');
+        if (venueSelect && venueSelect.selectedIndex >= 0) {
+          const selectedOption = venueSelect.options[venueSelect.selectedIndex];
+          const venueParts = selectedOption.value.split(' - ');
+          if (venueParts.length >= 2) {
+            const name = venueParts[0];
+            const address = venueParts.slice(1).join(' - ');
+
+            const venueNameEl = document.querySelector('[data-field="venue_name"]');
+            const venueAddressEl = document.querySelector('[data-field="venue_address"]');
+
+            if (venueNameEl && venueNameEl.textContent !== name) {
+              venueNameEl.textContent = name;
+            }
+
+            if (venueAddressEl && venueAddressEl.textContent !== address) {
+              venueAddressEl.textContent = address;
+            }
+          }
+        }
+      }
+    }
+
+    function showNotification(message, type = 'success') {
+      const notification = document.getElementById('notification');
+      notification.textContent = message;
+      notification.className = `notification ${type}`;
+      notification.classList.add('show');
+
+      setTimeout(() => {
+        notification.classList.remove('show');
+      }, 3000);
+    }
+
+    function showChangesIndicator() {
+      const indicator = document.getElementById('changes-indicator');
+      if (hasUnsavedChanges) {
+        indicator.classList.add('show');
+      } else {
+        indicator.classList.remove('show');
+      }
+    }
+
+    function markAsChanged() {
+      hasUnsavedChanges = true;
+      showChangesIndicator();
+    }
+
+    function markAsSaved() {
+      hasUnsavedChanges = false;
+      showChangesIndicator();
+    }
+
+    function storeOriginalData() {
+      // Store original venue data
+      originalData.venue_name = document.querySelector('[data-field="venue_name"]')?.textContent;
+      originalData.venue_address = document.querySelector('[data-field="venue_address"]')?.textContent;
+
+      // Store original schedule data
+      originalData.schedule = [];
+      document.querySelectorAll('.schedule-row').forEach(row => {
+        originalData.schedule.push({
+          hour: row.getAttribute('data-original-hour'),
+          description: row.getAttribute('data-original-description')
+        });
+      });
+
+      // Store original activities data
+      originalData.activities = [];
+      document.querySelectorAll('#activities-list li').forEach(item => {
+        originalData.activities.push(item.getAttribute('data-original'));
+      });
+    }
+
+    function makeEditable() {
+      document.querySelectorAll('.editable').forEach(element => {
+        element.addEventListener('click', function() {
+          if (editingElement && editingElement !== this) {
+            cancelEdit();
+          }
+
+          editingElement = this;
+          originalValue = this.textContent;
+          this.classList.add('editing');
+
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.value = originalValue;
+          input.className = 'w-full p-1 border border-orange-400 rounded';
+
+          input.addEventListener('blur', saveEdit);
+          input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+              saveEdit();
+            } else if (e.key === 'Escape') {
+              cancelEdit();
+            }
+          });
+
+          this.innerHTML = '';
+          this.appendChild(input);
+          input.focus();
+          input.select();
+        });
+      });
+    }
+
+    function saveEdit() {
+      if (!editingElement) return;
+
+      const input = editingElement.querySelector('input');
+      if (input) {
+        const newValue = input.value;
+        editingElement.textContent = newValue;
+        editingElement.classList.remove('editing');
+
+        // Check if value actually changed
+        if (newValue !== editingElement.getAttribute('data-original')) {
+          // Aktualizuj atrybut data-original, aby odzwierciedlał nową wartość
+          editingElement.setAttribute('data-original', newValue);
+
+          // Jeśli edytujemy element harmonogramu, zaktualizuj również atrybuty wiersza
+          const row = editingElement.closest('.schedule-row');
+          if (row) {
+            const field = editingElement.getAttribute('data-field');
+            if (field === 'hour') {
+              row.setAttribute('data-original-hour', newValue);
+            } else if (field === 'description') {
+              row.setAttribute('data-original-description', newValue);
+            }
+          }
+
+          markAsChanged();
+          showNotification('Zmiana zapisana lokalnie');
+          debug('Zapisano edycję', { element: editingElement.getAttribute('data-field'), value: newValue });
+        }
+
+        editingElement = null;
+      }
+    }
+
+    function cancelEdit() {
+      if (!editingElement) return;
+
+      editingElement.textContent = originalValue;
+      editingElement.classList.remove('editing');
+      editingElement = null;
+    }
+
+    function addScheduleItem() {
+      const tbody = document.querySelector('#schedule-table tbody');
+      const newRow = document.createElement('tr');
+      newRow.className = 'even:bg-gray-50 schedule-row';
+      newRow.setAttribute('data-original-hour', '00:00');
+      newRow.setAttribute('data-original-description', 'Nowa aktywność');
+      newRow.innerHTML = `
+        <td class="py-3 px-6 align-top">
+          <span class="editable" data-field="hour" data-original="00:00">00:00</span>
+        </td>
+        <td class="py-3 px-6 align-top">
+          <span class="editable" data-field="description" data-original="Nowa aktywność">Nowa aktywność</span>
+        </td>
+        <td class="py-3 px-6 align-top">
+          <button onclick="removeScheduleItem(this)" class="text-red-600 hover:text-red-800 text-sm">
+            🗑️
+          </button>
+        </td>
+      `;
+      tbody.appendChild(newRow);
+      makeEditable();
+      markAsChanged();
+      showNotification('Dodano nową pozycję do harmonogramu');
+      debug('Dodano nową pozycję do harmonogramu');
+    }
+
+    function removeScheduleItem(button) {
+      button.closest('tr').remove();
+      markAsChanged();
+      showNotification('Usunięto pozycję z harmonogramu');
+      debug('Usunięto pozycję z harmonogramu');
+    }
+
+    function addActivity() {
+      const list = document.getElementById('activities-list');
+      const newItem = document.createElement('li');
+      newItem.className = 'flex items-center justify-between bg-white p-3 rounded-lg border';
+      newItem.setAttribute('data-original', 'Nowa aktywność');
+      newItem.innerHTML = `
+        <span class="editable" data-field="activity" data-original="Nowa aktywność">Nowa aktywność</span>
+        <button onclick="removeActivity(this)" class="text-red-600 hover:text-red-800 text-sm ml-4">
+          🗑️
+        </button>
+      `;
+      list.appendChild(newItem);
+      makeEditable();
+      markAsChanged();
+      showNotification('Dodano nową aktywność');
+      debug('Dodano nową aktywność');
+    }
+
+    function removeActivity(button) {
+      button.closest('li').remove();
+      markAsChanged();
+      showNotification('Usunięto aktywność');
+      debug('Usunięto aktywność');
+    }
+
+    function selectPlace(card, name, address) {
+      document.querySelectorAll('.place-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+
+      // Update venue in invitation form
+      const venueSelect = document.querySelector('select[name="venue"]');
+      if (venueSelect) {
+        venueSelect.value = `${name} - ${address}`;
+      }
+
+      // Aktualizuj dane miejsca w harmonogramie
+      const venueNameEl = document.querySelector('[data-field="venue_name"]');
+      const venueAddressEl = document.querySelector('[data-field="venue_address"]');
+
+      if (venueNameEl) {
+        venueNameEl.textContent = name;
+        venueNameEl.setAttribute('data-original', name);
+      }
+
+      if (venueAddressEl) {
+        venueAddressEl.textContent = address;
+        venueAddressEl.setAttribute('data-original', address);
+      }
+
+      markAsChanged();
+      showNotification(`Wybrano miejsce: ${name}. Zaktualizowano dane w harmonogramie.`);
+      debug('Wybrano miejsce', { name, address });
+    }
+
+    function discardChanges() {
+      if (!hasUnsavedChanges) {
+        showNotification('Brak zmian do odrzucenia', 'warning');
+        return;
+      }
+
+      if (confirm('Czy na pewno chcesz odrzucić wszystkie niezapisane zmiany?')) {
+        // Restore venue data
+        if (originalData.venue_name) {
+          const venueNameEl = document.querySelector('[data-field="venue_name"]');
+          if (venueNameEl) venueNameEl.textContent = originalData.venue_name;
+        }
+        if (originalData.venue_address) {
+          const venueAddressEl = document.querySelector('[data-field="venue_address"]');
+          if (venueAddressEl) venueAddressEl.textContent = originalData.venue_address;
+        }
+
+        // Restore schedule data
+        const tbody = document.querySelector('#schedule-table tbody');
+        tbody.innerHTML = '';
+        originalData.schedule.forEach(item => {
+          const newRow = document.createElement('tr');
+          newRow.className = 'even:bg-gray-50 schedule-row';
+          newRow.setAttribute('data-original-hour', item.hour);
+          newRow.setAttribute('data-original-description', item.description);
+          newRow.innerHTML = `
+            <td class="py-3 px-6 align-top">
+              <span class="editable" data-field="hour" data-original="${item.hour}">${item.hour}</span>
+            </td>
+            <td class="py-3 px-6 align-top">
+              <span class="editable" data-field="description" data-original="${item.description}">${item.description}</span>
+            </td>
+            <td class="py-3 px-6 align-top">
+              <button onclick="removeScheduleItem(this)" class="text-red-600 hover:text-red-800 text-sm">
+                🗑️
+              </button>
+            </td>
+          `;
+          tbody.appendChild(newRow);
+        });
+
+        // Restore activities data
+        const activitiesList = document.getElementById('activities-list');
+        activitiesList.innerHTML = '';
+        originalData.activities.forEach(activity => {
+          const newItem = document.createElement('li');
+          newItem.className = 'flex items-center justify-between bg-white p-3 rounded-lg border';
+          newItem.setAttribute('data-original', activity);
+          newItem.innerHTML = `
+            <span class="editable" data-field="activity" data-original="${activity}">${activity}</span>
+            <button onclick="removeActivity(this)" class="text-red-600 hover:text-red-800 text-sm ml-4">
+              🗑️
+            </button>
+          `;
+          activitiesList.appendChild(newItem);
+        });
+
+        makeEditable();
+        markAsSaved();
+        showNotification('Zmiany zostały odrzucone');
+        debug('Odrzucono zmiany');
+      }
+    }
+
+    function saveChanges() {
+      if (!hasUnsavedChanges) {
+        showNotification('Brak zmian do zapisania', 'warning');
+        return;
+      }
+
+      // Collect all changes
+      const changes = {
+        venue_name: document.querySelector('[data-field="venue_name"]')?.textContent,
+        venue_address: document.querySelector('[data-field="venue_address"]')?.textContent,
+        schedule: [],
+        activities: []
+      };
+
+      // Collect schedule changes
+      document.querySelectorAll('.schedule-row').forEach(row => {
+        const hour = row.querySelector('[data-field="hour"]')?.textContent;
+        const description = row.querySelector('[data-field="description"]')?.textContent;
+        if (hour && description) {
+          changes.schedule.push({ hour, description });
+        }
+      });
+
+      // Collect activities changes
+      document.querySelectorAll('[data-field="activity"]').forEach(activity => {
+        if (activity.textContent.trim()) {
+          changes.activities.push(activity.textContent.trim());
+        }
+      });
+
+      // Send changes to server
+      fetch('/update_event_plan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(changes)
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          markAsSaved();
+          storeOriginalData(); // Update original data after successful save
+          showNotification('Plan wydarzenia został zapisany!');
+          debug('Zapisano zmiany', changes);
+        } else {
+          showNotification('Błąd podczas zapisywania', 'error');
+          debug('Błąd podczas zapisywania', data);
+        }
+      })
+      .catch(error => {
+        showNotification('Błąd podczas zapisywania', 'error');
+        debug('Błąd podczas zapisywania', { error: error.toString() });
+      });
+    }
+
+    function downloadPDF() {
+      // Zakończ edycję, jeśli jakaś trwa
+      if (editingElement) {
+        saveEdit();
+      }
+
+      // Pobierz aktualne dane
+      const event_type = "{{ event_type }}";
+      const venue_name = document.querySelector('[data-field="venue_name"]')?.textContent || "";
+      const venue_address = document.querySelector('[data-field="venue_address"]')?.textContent || "";
+      const start_time = "{{ start_time }}";
+      const end_time = "{{ end_time }}";
+
+      // Zbierz dane harmonogramu - pobierz AKTUALNE wartości z interfejsu
+      const schedule = [];
+      document.querySelectorAll('.schedule-row').forEach(row => {
+        const hourElement = row.querySelector('[data-field="hour"]');
+        const descriptionElement = row.querySelector('[data-field="description"]');
+
+        const hour = hourElement ? hourElement.textContent.trim() : "";
+        const description = descriptionElement ? descriptionElement.textContent.trim() : "";
+
+        if (hour && description) {
+          schedule.push({ hour, description });
+        }
+      });
+
+      // Zbierz dane aktywności - pobierz AKTUALNE wartości z interfejsu
+      const activities = [];
+      document.querySelectorAll('[data-field="activity"]').forEach(activity => {
+        const text = activity.textContent.trim();
+        if (text) {
+          activities.push(text);
+        }
+      });
+
+      // Przygotuj dane do wysłania
+      const data = {
+        event_type,
+        venue_name,
+        venue_address,
+        schedule,
+        activities,
+        start_time,
+        end_time
+      };
+
+      // Debugowanie - pokaż dane, które będą wysłane
+      debug('Dane do wysłania do PDF', data);
+
+      // Zmień tekst przycisku na ładowanie
+      const downloadBtn = document.getElementById('download-pdf');
+      const originalText = downloadBtn.innerHTML;
+      downloadBtn.innerHTML = '<span class="loading-spinner mr-2"></span> Generowanie...';
+      downloadBtn.disabled = true;
+
+      // Wyślij żądanie do serwera
+      fetch('/download_pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Błąd podczas generowania PDF');
+        }
+        return response.blob();
+      })
+      .then(blob => {
+        // Utwórz link do pobrania pliku
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `Plan-${event_type}-${new Date().toISOString().slice(0, 10)}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+
+        // Przywróć oryginalny tekst przycisku
+        downloadBtn.innerHTML = originalText;
+        downloadBtn.disabled = false;
+
+        showNotification('PDF został wygenerowany i pobrany!');
+        debug('PDF wygenerowany i pobrany');
+      })
+      .catch(error => {
+        console.error('Błąd:', error);
+        downloadBtn.innerHTML = originalText;
+        downloadBtn.disabled = false;
+        showNotification('Błąd podczas generowania PDF', 'error');
+        debug('Błąd podczas generowania PDF', { error: error.toString() });
+      });
+    }
+
+    function copyInvitation() {
+      const textarea = document.getElementById('invitation-text');
+      textarea.select();
+      document.execCommand('copy');
+      showNotification('Zaproszenie skopiowane do schowka!');
+    }
+
+    // Warning before leaving page with unsaved changes
+    window.addEventListener('beforeunload', function(e) {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      showTab('harmonogram');
+      makeEditable();
+      storeOriginalData();
+
+      // Dodaj przycisk debugowania (ukryty, aktywowany przez Ctrl+Shift+D)
+      document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+          toggleDebug();
+          e.preventDefault();
+        }
+      });
+    });
+
+    document.getElementById('invitation-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const formData = new FormData(this);
+      formData.append('event_type', '{{ event_type }}');
+
+      const submitButton = this.querySelector('button[type="submit"]');
+      const originalText = submitButton.textContent;
+      submitButton.textContent = '⏳ Generowanie...';
+      submitButton.disabled = true;
+
+      try {
+        const response = await fetch('/generate_invitation', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!response.ok) throw new Error('Błąd sieci: ' + response.status);
+
+        const data = await response.json();
+
+        const resultBox = document.getElementById('invitation-result');
+        const textArea = document.getElementById('invitation-text');
+
+        if (data.invitation) {
+          textArea.value = data.invitation;
+          resultBox.classList.remove('hidden');
+          textArea.focus();
+          showNotification('Zaproszenie zostało wygenerowane!');
+          debug('Wygenerowano zaproszenie');
+        } else {
+          textArea.value = 'Błąd: ' + (data.error || 'Nieznany problem.');
+          resultBox.classList.remove('hidden');
+          showNotification('Błąd podczas generowania zaproszenia', 'error');
+          debug('Błąd podczas generowania zaproszenia', data);
+        }
+      } catch (err) {
+        const resultBox = document.getElementById('invitation-result');
+        const textArea = document.getElementById('invitation-text');
+        textArea.value = 'Błąd: ' + err.message;
+        resultBox.classList.remove('hidden');
+        showNotification('Błąd podczas generowania zaproszenia', 'error');
+        debug('Błąd podczas generowania zaproszenia', { error: err.toString() });
+      } finally {
+        submitButton.textContent = originalText;
+        submitButton.disabled = false;
+      }
+    });
+  </script>
+
+</body>
+</html>
