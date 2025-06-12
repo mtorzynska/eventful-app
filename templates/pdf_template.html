@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plan wydarzenia: {{ event_type }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #8b5cf6;
+            padding-bottom: 10px;
+        }
+        .header h1 {
+            color: #8b5cf6;
+            margin-bottom: 5px;
+        }
+        .header p {
+            color: #666;
+            font-style: italic;
+            margin-top: 0;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        .section h2 {
+            color: #8b5cf6;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+        }
+        .venue {
+            background-color: #f9f7ff;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #8b5cf6;
+        }
+        .schedule {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        .schedule th, .schedule td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        .schedule th {
+            background-color: #f9f7ff;
+        }
+        .schedule tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .activities {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        .activities li {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .activities li:last-child {
+            border-bottom: none;
+        }
+        .footer {
+            margin-top: 50px;
+            text-align: center;
+            font-size: 0.8em;
+            color: #666;
+            border-top: 1px solid #ddd;
+            padding-top: 10px;
+        }
+        .time-info {
+            background-color: #f0f7ff;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #3b82f6;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Plan wydarzenia: {{ event_type }}</h1>
+        <p>Wygenerowano: {{ date }}</p>
+    </div>
+
+    {% if start_time or end_time %}
+    <div class="time-info">
+        <h3>Planowany czas wydarzenia</h3>
+        <p>
+            {% if start_time and end_time %}
+                Od {{ start_time }} do {{ end_time }}
+            {% elif start_time %}
+                Rozpoczęcie: {{ start_time }}
+            {% elif end_time %}
+                Zakończenie: {{ end_time }}
+            {% endif %}
+        </p>
+    </div>
+    {% endif %}
+
+    <div class="section">
+        <h2>Miejsce wydarzenia</h2>
+        <div class="venue">
+            <p><strong>Nazwa:</strong> {{ venue_name }}</p>
+            <p><strong>Adres:</strong> {{ venue_address }}</p>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Harmonogram</h2>
+        <table class="schedule">
+            <thead>
+                <tr>
+                    <th>Godzina</th>
+                    <th>Opis</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in schedule %}
+                <tr>
+                    <td>{{ item.hour }}</td>
+                    <td>{{ item.description }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2>Aktywności dodatkowe</h2>
+        <ul class="activities">
+            {% for activity in activities %}
+            <li>{{ activity }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <div class="footer">
+        <p>Wygenerowano przez Planer Wydarzeń</p>
+    </div>
+</body>
+</html>

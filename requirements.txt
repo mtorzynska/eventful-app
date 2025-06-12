@@ -1,0 +1,10 @@
+flask==2.3.3
+python-dotenv==1.0.0
+requests==2.31.0
+google-generativeai==0.5.0
+pydantic==2.11.5
+dotenv~=0.9.9
+agno~=1.6.0
+weasyprint==60.1
+Jinja2==3.1.2
+reportlab~=4.0.4
