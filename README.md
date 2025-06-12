@@ -1,4 +1,4 @@
-### 🎉 Eventful - AI-assistance app for event planning - aplikacja z asystentem AI do planowania wydarzeń
+# 🎉 Eventful - AI-assistance app for event planning - aplikacja z asystentem AI do planowania wydarzeń
 
 Aplikacja wykorzystująca asystenta AI do  planowania wydarzeń, generowania harmonogramów i tworzenia spersonalizowanych zaproszeń.
 Projekt łączy zaawansowane modele AI z intuicyjnym interfejsem użytkownika, aby uprościć proces organizacji wydarzeń.
