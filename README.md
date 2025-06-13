@@ -12,7 +12,7 @@ Eventful to aplikacja webowa, która automatyzuje proces planowania wydarzeń po
 - Tworzenie spersonalizowanych zaproszeń
 - Generowanie profesjonalnych dokumentów PDF z planami wydarzeń
 
-## 🎯 Biznes Case
+## 💼 Biznes Case
 
 Wiele firm ma problem z szybką organizacją wydarzeń typu integracje, czy wyjazdy firmowe, czemu może pomóc Eventful wspierając firmy nieposiadające specjalistów od event managementu.
 Z Eventful mogą skorzystać również organizatorzy wydarzeń i firmy eventowe, które borykają się z następującymi wyzwaniami:
